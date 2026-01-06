@@ -20,6 +20,10 @@ Unlike traditional dashboards that only *show* you who left, this AI Agent **thi
 * **⚡ Real-Time "Headless" Architecture:** Built with **FastAPI** (Backend) and **Streamlit** (Frontend), mimicking a modern composable commerce stack.
 * **🔄 Campaign Persistence:** Automatically logs all agent decisions and generated emails into an audit trail.
 
+
+<img width="1819" height="777" alt="Image" src="https://github.com/user-attachments/assets/1eee6733-4787-4e61-abba-639fa306fe72" />
+<img width="1687" height="780" alt="Image" src="https://github.com/user-attachments/assets/d967eda0-b9a0-43b1-afb9-5eb4e5c037ba" />
+
 ---
 
 ## 🏗️ Architecture
