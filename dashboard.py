@@ -3,173 +3,124 @@ import pandas as pd
 import requests
 import time
 
-# Configuration
 API_URL = "http://127.0.0.1:8000"
+st.set_page_config(layout="wide", page_title="Customer 360 AI")
 
-st.set_page_config(layout="wide", page_title="Antavo AI Agent")
-
-# --- IMPROVED CSS FOR DARK MODE VISIBILITY ---
+# CSS
 st.markdown("""
 <style>
-    /* Metrics Styling */
-    .big-metric {font-size: 30px; font-weight: bold; color: #4CAF50;}
-    
-    /* Tab Container Gap */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-
-    /* Unselected Tabs - High Contrast for Dark Mode */
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #1E1E1E; /* Dark Grey Background */
-        color: #FFFFFF; /* Bright White Text */
-        border: 1px solid #4a4a4a; /* Subtle Border */
-        border-radius: 8px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-    }
-
-    /* Selected Tab - Bright Green */
-    .stTabs [aria-selected="true"] {
-        background-color: #4CAF50 !important;
-        color: white !important;
-        border: 1px solid #4CAF50;
-    }
-
-    /* Hover Effect */
-    .stTabs [data-baseweb="tab"]:hover {
-        border-color: #4CAF50;
-        color: #4CAF50;
-    }
+    .customer-card {background-color: #262730; padding: 20px; border-radius: 10px; border-left: 5px solid #4CAF50;}
+    .stat-box {text-align: center; background: #1e1e1e; padding: 10px; border-radius: 5px; margin: 5px;}
 </style>
 """, unsafe_allow_html=True)
 
-# Sidebar: Industry Context Switcher
+# Sidebar
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712009.png", width=50)
-    st.title("Enterprise Loyalty Cloud")
-    industry = st.selectbox("Select Industry Vertical", ["Supermarket", "Oil & Gas", "Banking"])
-    st.info(f"Context loaded: **{industry}**")
-    st.markdown("---")
-    st.write("Logged in as: **Marketing Manager**")
-
-st.header(f"🤖 AI Loyalty Agent - {industry} Edition")
-
-# --- Tabs for the Workflow ---
-tab1, tab2, tab3 = st.tabs(["1. AI Analysis & Proposals", "2. Validation & Launch", "3. Real-Time Monitor"])
-
-# --- TAB 1: Analysis ---
-with tab1:
-    st.subheader("Detected Behavioral Segments")
+    st.title("👥 Customer Database")
+    uploaded_file = st.file_uploader("Upload 'customer_360_data.csv'", type=["csv"])
     
-    if st.button("🔄 Scan Customer Base"):
-        try:
-            # 1. Fetch Segments
-            segments = requests.get(f"{API_URL}/data/segments", params={"industry": industry}).json()
-            st.session_state['segments'] = segments  # Save to memory
-        except:
-            st.error("Backend offline. Run uvicorn api:app...")
-
-    if 'segments' in st.session_state:
-        # Display Segments in a Grid
-        cols = st.columns(3)
-        for i, seg in enumerate(st.session_state['segments']):
-            with cols[i]:
-                # Card Styling using standard markdown
-                st.markdown(f"### 👥 {seg['segment_name']}")
-                st.warning(f"⚠️ {seg['behavior_change']}")
-                st.write(f"**Size:** {seg['size']} customers")
-                st.write(f"**Avg Value:** ${seg['avg_value']}")
-                
-                if st.button(f"Generate Campaign for {i}", key=f"btn_{i}"):
-                    with st.spinner("AI is calculating ROI and strategy..."):
-                        # 2. Call AI Agent
-                        response = requests.post(f"{API_URL}/agent/plan_campaign", json=seg)
-                        st.session_state['draft_campaign'] = response.json()
-                        st.toast("Campaign Drafted! Go to Tab 2.", icon="✅")
-
-# --- TAB 2: Validation (Pre-filled Form) ---
-with tab2:
-    if 'draft_campaign' in st.session_state:
-        draft = st.session_state['draft_campaign']
-        
-        st.subheader("📝 Validate AI Proposal")
-        
-        # Split into two columns: Metrics & Form
-        c1, c2 = st.columns([1, 2])
-        
-        with c1:
-            st.markdown("### AI Predictions")
-            st.metric("Estimated ROI", f"{draft['estimated_roi']}x")
-            st.metric("Total Cost", f"${draft['total_cost']:,}")
-            st.metric("Est. Participation", f"{int(draft['estimated_participation']*100)}%")
-            
-        with c2:
-            # --- FIX: REMOVED st.form WRAPPER TO FIX BUTTON ERROR ---
-            st.markdown("### Campaign Configuration")
-            
-            # Helper logic to find index safely
-            options = ["SMS", "Push", "Email"]
-            default_idx = 0
-            if draft.get("campaign_type") in options:
-                default_idx = options.index(draft.get("campaign_type"))
-
-            new_channel = st.selectbox("Channel", options, index=default_idx)
-            new_incentive = st.text_input("Incentive", value=draft['incentive'])
-            
-            # Message + Mic Button
-            st.markdown("### Message Content")
-            msg_col, mic_col = st.columns([6, 1])
-            with msg_col:
-                new_msg = st.text_area("Edit Message", value=draft['message'], height=100, label_visibility="collapsed")
-            with mic_col:
-                if st.button("🎙️", help="Simulate Voice Command"):
-                    st.toast("Listening... (Simulating Voice Input)", icon="🎤")
-                    time.sleep(1)
-                    st.toast("Voice Command Processed", icon="✅")
-            
-            new_duration = st.slider("Duration (Days)", 1, 30, draft['duration_days'])
-            
-            st.divider()
-            
-            # Changed to regular button (Primary Style)
-            if st.button("🚀 Validate & Launch Campaign", type="primary"):
-                # Update draft with edited values
-                draft['campaign_type'] = new_channel
-                draft['message'] = new_msg
-                draft['incentive'] = new_incentive
-                
-                # 3. Launch
-                try:
-                    res = requests.post(f"{API_URL}/campaign/launch", json=draft)
-                    if res.status_code == 200:
-                        st.success("Campaign Successfully Launched!")
-                        st.balloons()
-                except Exception as e:
-                    st.error(f"Launch failed: {e}")
-    else:
-        st.info("👈 Please select a segment in 'AI Analysis' first.")
-
-# --- TAB 3: Real-Time Monitor ---
-with tab3:
-    st.subheader("📊 Live Campaign Dashboard")
+    if uploaded_file:
+        if st.button("🔄 Process Database"):
+            files = {"file": uploaded_file.getvalue()}
+            res = requests.post(f"{API_URL}/upload_data", files=files)
+            if res.status_code == 200:
+                st.success(f"Indexed {res.json()['count']} Profiles")
+                st.session_state['data_loaded'] = True
     
-    if st.button("Refresh Live Data"):
-        try:
-            live_data = requests.get(f"{API_URL}/campaign/dashboard").json()
-            st.session_state['live_data'] = live_data
-        except:
-            st.error("No active campaigns.")
+    st.divider()
+    
+    selected_id = None
+    
+    if st.session_state.get('data_loaded'):
+        # SEPARATE DROPDOWNS
+        st.markdown("### 🔍 Quick Filter")
+        
+        # 1. Churned List
+        churned_list = requests.get(f"{API_URL}/get_ids_by_status/Churned").json()
+        churn_select = st.selectbox(
+            "🚨 Churned (Crisis)", 
+            options=["Select..."] + churned_list,
+            index=0
+        )
+        
+        # 2. Active List
+        active_list = requests.get(f"{API_URL}/get_ids_by_status/Active").json()
+        active_select = st.selectbox(
+            "✅ Active (Positive)", 
+            options=["Select..."] + active_list,
+            index=0
+        )
+        
+        # Logic to handle selection priority
+        if churn_select != "Select...":
+            selected_id = churn_select
+        elif active_select != "Select...":
+            selected_id = active_select
 
-    if 'live_data' in st.session_state and st.session_state['live_data']:
-        df = pd.DataFrame(st.session_state['live_data'])
+# Main Screen
+st.title("🕵️ Individual Customer Detective")
+
+if selected_id:
+    # 1. Fetch Details
+    c = requests.get(f"{API_URL}/get_customer_details/{selected_id}").json()
+    
+    # Top Row: The Profile
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=120)
+        st.markdown(f"### Client #{c['ClientID']}")
         
-        # Visuals
-        st.dataframe(df[['segment_name', 'campaign_type', 'participants', 'revenue', 'status']], use_container_width=True)
+        status_color = "red" if c['Status'] == "Churned" else "green"
+        st.markdown(f"**Status:** :{status_color}[{c['Status']}]")
+        st.markdown(f"**Sentiment:** {c['Sentiment']}")
+        st.markdown(f"**Channel:** {c['Preferred_Channel']}")
+
+    with col2:
+        # Stats Grid
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Total Spend", f"{c['Total_Spend']} MAD")
+        s2.metric("Visits", c['Visits'])
+        s3.metric("Avg Basket", f"{c['Avg_Basket']} MAD")
+        s4.metric("Last Visit", c['Last_Visit'])
         
-        # Charts
-        st.bar_chart(df, x="segment_name", y="revenue", color="#4CAF50")
-    else:
-        st.write("No campaigns currently active.")
+        st.info(f"📝 **Latest Feedback:** \"{c['Feedback']}\"")
+
+    st.divider()
+
+    # 2. The AI Agent Analysis
+    st.subheader("🤖 AI Agent Solution")
+    
+    if st.button("⚡ Generate Personal Solution"):
+        with st.spinner(f"Analyzing Client {selected_id}'s psychology..."):
+            res = requests.post(f"{API_URL}/agent/individual_solution", json={"customer_data": c})
+            st.session_state['solution'] = res.json()
+
+    if 'solution' in st.session_state:
+        sol = st.session_state['solution']
+        
+        # Two Columns: Analysis vs Action
+        ac1, ac2 = st.columns(2)
+        
+        with ac1:
+            with st.container(border=True):
+                st.markdown("#### 🧠 Root Cause Analysis")
+                st.write(sol['root_cause'])
+                st.markdown("#### 🎯 Strategy")
+                st.write(sol['solution_strategy'])
+        
+        with ac2:
+            with st.container(border=True):
+                st.markdown(f"#### 📨 Draft {c['Preferred_Channel']}")
+                st.text_area("Message", value=sol['drafted_message'], height=150)
+                
+                incentive = sol.get('recommended_incentive', 'None')
+                st.success(f"**Recommended Incentive:** {incentive}")
+                
+                if st.button("🚀 Send Message Now", type="primary"):
+                    st.toast(f"Message sent to Client {c['ClientID']} via {c['Preferred_Channel']}!", icon="✅")
+                    time.sleep(2)
+                    st.balloons()
+
+else:
+    st.info("👈 Upload 'customer_360_data.csv' and pick a Customer ID from the sidebar.")
